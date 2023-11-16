@@ -23,7 +23,7 @@ public class Grid_Cell : MonoBehaviour
     public void SetLetterBlock(Letter_Block lb)
     {
         contained_Letter_Block = lb;
-        contained_Letter_Block.GetComponent<Letter_Block>().SetDestination(this.transform.position);
+        contained_Letter_Block.GetComponent<Letter_Block>().SetDestination(this);
         //contained_Letter_Block.transform.position = this.transform.position;
     }
 

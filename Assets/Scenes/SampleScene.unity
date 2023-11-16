@@ -558,6 +558,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d74a560a1c9874018bcbe4dbece2ac99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  DeleteOnDrop: 0
   LetterBlockPrefab: {fileID: 8271822613742539951, guid: b95d32ae3dfb54129841edc0944d591c, type: 3}
   WordTextList: {fileID: 205008924}
   ScoreText: {fileID: 14724162}
