@@ -17,7 +17,8 @@ public class Manager_Game : MonoBehaviour
     [SerializeField] private GameObject LetterBlockPrefab;
     [SerializeField] private TMP_Text WordTextList;
     [SerializeField] private TMP_Text ScoreText;
-    public GameObject currentLetterBlock;
+    private GameObject nextLetterBlock = null;
+    public GameObject currentLetterBlock = null;
 
     [SerializeField] private TextAsset WordListTextAsset;
     [SerializeField] private static HashSet<string> ValidWords;
@@ -76,12 +77,29 @@ public class Manager_Game : MonoBehaviour
     }
     public void SpawnNewLetterBlock()
     {
-        currentLetterBlock = Instantiate<GameObject>(LetterBlockPrefab);
-        currentLetterBlock.transform.localScale = new Vector3(manager_Grid.xYScaleFactor, manager_Grid.xYScaleFactor, 1);
+        if(nextLetterBlock == null)
+        {
+            nextLetterBlock = Instantiate<GameObject>(LetterBlockPrefab);
+            nextLetterBlock.transform.localScale = new Vector3(manager_Grid.xYScaleFactor, manager_Grid.xYScaleFactor, 1);
+            nextLetterBlock.transform.position = Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1));
+            nextLetterBlock.GetComponent<Letter_Block>().SetDestination(Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1)));
+
+            nextLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
+        }
+        if (currentLetterBlock == null)
+        {
+            currentLetterBlock = nextLetterBlock;
+            nextLetterBlock = null;
+        }
+        nextLetterBlock = Instantiate<GameObject>(LetterBlockPrefab);
+        nextLetterBlock.transform.localScale = new Vector3(manager_Grid.xYScaleFactor, manager_Grid.xYScaleFactor, 1);
+        nextLetterBlock.transform.position = Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1));
+        nextLetterBlock.GetComponent<Letter_Block>().SetDestination(Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1)));
+        nextLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
         currentPosition_Arr = midPosition_Arr;
         currentLetterBlock.GetComponent<Letter_Block>().SetDestination(manager_Grid.AboveGridBlockPositions[midPosition_Arr]);
         currentLetterBlock.transform.position = manager_Grid.AboveGridBlockPositions[midPosition_Arr];
-        currentLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
+        //currentLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
         HightLight();
     }
     private string GetRandomLetter()
@@ -132,6 +150,7 @@ public class Manager_Game : MonoBehaviour
     private void LetterClicked(Letter_Block lb)
     {
         List<Word> wordsToDelete = new List<Word>();
+        //get all words that are attached to clicked letter block.
         foreach(Word word in Words)
         {
             if(word.Contains_Letter_Block(lb))
@@ -139,7 +158,28 @@ public class Manager_Game : MonoBehaviour
                 wordsToDelete.Add(word);
                 //I dont break here because the letter can be part of 2 words
             }
-            
+        }
+        //get all words attached to clicked word.
+        foreach(Word wordD in wordsToDelete)
+        {
+            foreach(Letter_Block lbD in wordD.letter_Blocks)
+            {
+                if(lbD == lb)
+                {
+                    continue;
+                }
+                foreach(Word word in Words)
+                {
+                    if(wordsToDelete.Contains(word))
+                    {
+                        continue;
+                    }
+                    if(word.Contains_Letter_Block(lbD))
+                    {
+                        wordsToDelete.Add(word);
+                    }
+                }
+            }
         }
         bool cellClensed = false;
         foreach (Word word in wordsToDelete)
