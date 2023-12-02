@@ -12,28 +12,43 @@ using System.IO;
 
 public class Manager_Game : MonoBehaviour
 {
+    [Tooltip("Toggles on and off the mechanice for deleting words as soon as they appear on the grid (true)" +
+        " or having to click/press a button to delete the words on the grid (false).")]
     [SerializeField] private bool DeleteOnDrop = false; //Delete me and refactor code when you decide best mechanic
+    [Tooltip("The number of seconds until a row of letter blocks spawns on the bottom row. (repeats ever n seconds)")]
+    [SerializeField] private int SecondsTillLettersSpawn = 60;
 
     [SerializeField] private GameObject LetterBlockPrefab;
+
+    [Tooltip("Prefab gameobject for the UFO art at the top of the screen that holds the letter blocks")]
+    [SerializeField] private GameObject UFOArt;
+    [Tooltip("Text mesh pro text object that lists all the previous desroyed words on the side of the screen.")]
     [SerializeField] private TMP_Text WordTextList;
+    [Tooltip("text mesh pro text object that shows the current score.")]
     [SerializeField] private TMP_Text ScoreText;
     private GameObject nextLetterBlock = null;
     public GameObject currentLetterBlock = null;
 
+    [Tooltip("Text file that contains all valid words.")]
     [SerializeField] private TextAsset WordListTextAsset;
-    [SerializeField] private static HashSet<string> ValidWords;
+    
+    private static HashSet<string> ValidWords;
 
+    [Tooltip("Grid manager object")]
     [SerializeField] private Manager_Grid manager_Grid;
 
+    //highlighted cells means the grid cells that are highlighed below the letter block about to get dropped.
     private List<Grid_Cell> highlightedCells = new List<Grid_Cell>();
     private List<Word> Words = new List<Word>();
-    //private Text textMesh;
+    
     private int currentPosition_Arr = 0;
     private int midPosition_Arr = 0;
     private int score = 0;
 
+    //init events
     public static IntEvent MoveLetterEvent = new IntEvent();
     public static UnityEvent DropLetterEvent = new UnityEvent();
+    public static UnityEvent DeleteAllWordsEvent = new UnityEvent();
     public static LetterEvent LetterClickedEvent = new LetterEvent();
     //private static Random _random = new Random();
 
@@ -44,39 +59,51 @@ public class Manager_Game : MonoBehaviour
         UpdateScore(0);
         MoveLetterEvent.AddListener(MoveLetterBlock);
         DropLetterEvent.AddListener(DropLetterBlock);
+        DeleteAllWordsEvent.AddListener(ClenseAllWords);
         LetterClickedEvent.AddListener(LetterClicked);
         ValidWords = new HashSet<string>();
         StartGame();
-
+        StartCoroutine(AddRowEveryMinute());
     }
-
+    IEnumerator AddRowEveryMinute()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(SecondsTillLettersSpawn);
+            spawnBottomRow();
+        }
+    }
+    //Start game logic, initializes game basicaly
     void StartGame()
     {
+        //loads the valid word list in from a text assest.
         LoadWordsFromTextAsset();
+        //sets up the grid based on the prameters set in the manager_grid.cs
         manager_Grid.GridSetUp();
 
+        //gets the middle column of the grid so we can always spawn new letters there EZ
         midPosition_Arr = manager_Grid.AboveGridBlockPositions.Length / 2;
+        //sets UFO Visual
+        UFOArt.transform.position = manager_Grid.AboveGridBlockPositions[midPosition_Arr];
+        UFOArt.GetComponent<UFO_Visual>().SetDestination(manager_Grid.AboveGridBlockPositions[midPosition_Arr]);
 
+        //Init done so spawn first letter blocks (next and current)
         SpawnNewLetterBlock();
     }
 
     private void LoadWordsFromTextAsset()
     {
         string[] words = WordListTextAsset.text.Split('\n');
-        //ONLY ONE TIME. DONT SHIP
-        //FixFile(words);
-        //******
+        
         foreach (string word in words)
         {
             ValidWords.Add(word.Trim());
         }
     }
-    private static bool IsValidWord(string wordToCheck)
-    {
-        return ValidWords.Contains(wordToCheck);
-    }
+    //Spawns new next letter block and sends the current next letter block to the current letter block position
     public void SpawnNewLetterBlock()
     {
+        //if game just loaded, do initial set up for first letters
         if(nextLetterBlock == null)
         {
             nextLetterBlock = Instantiate<GameObject>(LetterBlockPrefab);
@@ -86,30 +113,32 @@ public class Manager_Game : MonoBehaviour
 
             nextLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
         }
+        //if game just started or letter was dropped into grid
         if (currentLetterBlock == null)
         {
             currentLetterBlock = nextLetterBlock;
             nextLetterBlock = null;
         }
+        //load a new letter block into the next up block position
         nextLetterBlock = Instantiate<GameObject>(LetterBlockPrefab);
         nextLetterBlock.transform.localScale = new Vector3(manager_Grid.xYScaleFactor, manager_Grid.xYScaleFactor, 1);
         nextLetterBlock.transform.position = Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1));
         nextLetterBlock.GetComponent<Letter_Block>().SetDestination(Camera.main.ViewportToWorldPoint(new Vector3(0.9f, 0.9f, 1)));
         nextLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
+
         currentPosition_Arr = midPosition_Arr;
         currentLetterBlock.GetComponent<Letter_Block>().SetDestination(manager_Grid.AboveGridBlockPositions[midPosition_Arr]);
+        //set art position same as current letter
+        UFOArt.GetComponent<UFO_Visual>().SetDestination(manager_Grid.AboveGridBlockPositions[midPosition_Arr]);
         currentLetterBlock.transform.position = manager_Grid.AboveGridBlockPositions[midPosition_Arr];
-        //currentLetterBlock.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
         HightLight();
     }
     private string GetRandomLetter()
     {
-        //What should weights be???? How to Balence? Should it be RNG based on what is on the field?
-        //Like if a letter exist on the field already should the chances be lower?
-
-
+        
         return GetRandomLetterByFrequency().ToString();
     }
+    //used to move letter block left to right above grid before droping
     public void MoveLetterBlock(int direction)
     {
         if (direction < 0 && currentPosition_Arr > 0)
@@ -120,12 +149,12 @@ public class Manager_Game : MonoBehaviour
         {
             currentPosition_Arr++;
         }
-        //Debug.Log(manager_Grid.AboveGridBlockPositions[currentPosition_Arr] + " pos: " + currentPosition_Arr);
-        //currentLetterBlock.transform.position = manager_Grid.AboveGridBlockPositions[currentPosition_Arr];
         currentLetterBlock.GetComponent<Letter_Block>().SetDestination(
             manager_Grid.AboveGridBlockPositions[currentPosition_Arr]);
+        UFOArt.GetComponent<UFO_Visual>().SetDestination(manager_Grid.AboveGridBlockPositions[currentPosition_Arr]);
         HightLight();
     }
+    //Used to highlight grid cells that are under letter block about to be dropped for easy aim
     private void HightLight()
     {
         
@@ -147,6 +176,7 @@ public class Manager_Game : MonoBehaviour
             }
         }
     }
+    //Experimental funtion that will remove words only when clicked and not automaticaly.
     private void LetterClicked(Letter_Block lb)
     {
         List<Word> wordsToDelete = new List<Word>();
@@ -159,6 +189,7 @@ public class Manager_Game : MonoBehaviour
                 //I dont break here because the letter can be part of 2 words
             }
         }
+        List<Word> wordsToAdd = new List<Word>();
         //get all words attached to clicked word.
         foreach(Word wordD in wordsToDelete)
         {
@@ -176,11 +207,12 @@ public class Manager_Game : MonoBehaviour
                     }
                     if(word.Contains_Letter_Block(lbD))
                     {
-                        wordsToDelete.Add(word);
+                        wordsToAdd.Add(word);
                     }
                 }
             }
         }
+        wordsToDelete.AddRange(wordsToAdd);
         bool cellClensed = false;
         foreach (Word word in wordsToDelete)
         {
@@ -193,8 +225,21 @@ public class Manager_Game : MonoBehaviour
             Words.Clear();
             manager_Grid.updateGrid();
             searchWholeGridForBiggestWords();
+            HightLight();
         }
     }
+    private void ClenseAllWords()
+    {
+        foreach(Word word in Words)
+        {
+            ClenseWordFromClick(word);
+
+        }
+        Words.Clear();
+        manager_Grid.updateGrid();
+        searchWholeGridForBiggestWords();
+    }
+    //function for dropping the letter block into the lowest avalible spot on the grid in seleted column.
     public void DropLetterBlock()
     {
         Grid_Cell destination = null;
@@ -227,7 +272,41 @@ public class Manager_Game : MonoBehaviour
         }
 
     }
-
+    private void spawnBottomRow()
+    {
+        //move all blocks up 1
+        for(int i = 0; i < manager_Grid.grid.GetLength(1); i++)
+        {
+            for (int j = 0; j < manager_Grid.grid.GetLength(0); j++)
+            {
+                if(manager_Grid.grid[j,i].GetComponent<Grid_Cell>().Contained_Letter_Block != null)
+                {
+                    if(i == 0)
+                    {
+                        //game over
+                        Debug.Log("GAME OVER, i = 0 and letter go to high");
+                        return;
+                    }
+                    manager_Grid.grid[j, i].GetComponent<Grid_Cell>().Contained_Letter_Block.SetDestination(
+                        manager_Grid.grid[j, i - 1].GetComponent<Grid_Cell>());
+                    manager_Grid.grid[j, i - 1].GetComponent<Grid_Cell>().Contained_Letter_Block =
+                        manager_Grid.grid[j, i].GetComponent<Grid_Cell>().Contained_Letter_Block;
+                }
+            }
+        }
+        for(int j = 0; j < manager_Grid.grid.GetLength(0); j++)
+        {
+            GameObject LB;
+            LB = Instantiate<GameObject>(LetterBlockPrefab);
+            LB.transform.localScale = new Vector3(manager_Grid.xYScaleFactor, manager_Grid.xYScaleFactor, 1);
+            LB.GetComponent<Letter_Block>().SetLetter(GetRandomLetter());
+            manager_Grid.grid[j, manager_Grid.grid.GetLength(1) - 1].GetComponent<Grid_Cell>().SetLetterBlock(LB.GetComponent<Letter_Block>());
+            LB.transform.position = manager_Grid.grid[j, manager_Grid.grid.GetLength(1) - 1].transform.position;
+        }
+        searchWholeGridForBiggestWords();
+        HightLight();
+    }
+    //Searches the grid for biggest words it can make both horizontaly and verticaly.
     private void searchWholeGridForBiggestWords()
     {
         List<List<Grid_Cell>> CellsToClense = new List<List<Grid_Cell>>();
@@ -237,7 +316,6 @@ public class Manager_Game : MonoBehaviour
             Grid_Cell[] cells = new Grid_Cell[manager_Grid.grid.GetLength(0)];
             for(int j = 0; j < manager_Grid.grid.GetLength(0); j++)
             {
-                //Debug.Log(i + " : " + j);
                 cells[j] = manager_Grid.grid[j,i].GetComponent<Grid_Cell>();
             }
             List<List<Grid_Cell>> tmpCells = new List<List<Grid_Cell>>();
@@ -254,7 +332,6 @@ public class Manager_Game : MonoBehaviour
             Grid_Cell[] cells = new Grid_Cell[manager_Grid.grid.GetLength(1)];
             for(int j = manager_Grid.grid.GetLength(1) - 1; j >= 0 ; j--)
             {
-                //Debug.Log(i + " : " + j);
                 cells[j] = manager_Grid.grid[i, j].GetComponent<Grid_Cell>();
             }
             List<List<Grid_Cell>> tmpCells = new List<List<Grid_Cell>>();
@@ -280,7 +357,6 @@ public class Manager_Game : MonoBehaviour
                 {
                     if (cell.Contained_Letter_Block != null)
                     {
-                        //debugStr = debugStr + cell.Contained_Letter_Block.Letter;
                         Letter_Block tmp = cell.Contained_Letter_Block;
                         cell.Contained_Letter_Block = null;
                         Destroy(tmp.gameObject);
@@ -316,12 +392,22 @@ public class Manager_Game : MonoBehaviour
     private bool ClenseWordFromClick(Word word)
     {
         bool cellClensed = false;
+        HashSet<Letter_Block> deletes = new HashSet<Letter_Block>();
         foreach(Letter_Block letter_Block in word.letter_Blocks)
         {
+            if(deletes.Contains(letter_Block))
+            {
+                continue;
+            }
             letter_Block.parentCell.Contained_Letter_Block = null;
-            Destroy(letter_Block.gameObject);
+            deletes.Add(letter_Block);
+        }
+        foreach(Letter_Block block in deletes)
+        {
+            Destroy(block.gameObject);
             cellClensed = true;
         }
+        
         MoveLetterBlock(0);
         return cellClensed;
         

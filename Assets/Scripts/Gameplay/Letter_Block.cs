@@ -26,6 +26,7 @@ public class Letter_Block : MonoBehaviour
     {
         destination = grid_cell.transform.position;
         ParentCell = grid_cell;
+        //grid_cell.SetLetterBlock(this);
     }
     public void SetDestination(Vector3 _destination)
     {

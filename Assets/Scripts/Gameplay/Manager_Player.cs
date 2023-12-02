@@ -20,7 +20,7 @@ public class Manager_Player : MonoBehaviour
             Manager_Game.MoveLetterEvent.Invoke(-1);
             //MoveBlock(Vector2.left);
         }
-        else if(Input.GetKeyUp(KeyCode.Return) || Input.GetKeyUp(KeyCode.Space))
+        else if(Input.GetKeyUp(KeyCode.Space))
         {
             
             if (timer >= time)
@@ -28,9 +28,11 @@ public class Manager_Player : MonoBehaviour
                 Manager_Game.DropLetterEvent.Invoke();
                 timer = 0;
             }
-            //Debug.Log("Drop");
             
-            
+        }
+        else if(Input.GetKeyUp(KeyCode.Return))
+        {
+            Manager_Game.DeleteAllWordsEvent.Invoke();
         }
 
         //code for player input

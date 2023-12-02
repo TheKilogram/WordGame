@@ -68,7 +68,7 @@ public class Manager_Grid : MonoBehaviour
 
         XYScaleFactor = 1 / (oldCellSizeY / cellSizeY);
 
-        float baseY = (center.y + ((hight * cellSizeY) / 2)) - (cellSizeY / 2);
+        float baseY = ((center.y + ((hight * cellSizeY) / 2)) - (cellSizeY / 2)) - 0.9f;
         float baseX = (center.x - ((width * cellSizeX) / 2)) + (cellSizeX / 2);
         //Debug.Log("Base y =  " + baseY + " centerY = " + center.y + " height = " + hight + " cellSizeY = " + cellSizeY);
 
