@@ -92,6 +92,9 @@ public class Manager_Grid : MonoBehaviour
             }
         }
     }
+    //this needs to be updated to be better.
+    //If the distance between gaps as different on a column then it dont work.
+    //like if a horizontal and vertical word need delete on 1 column it break.
     public void updateGrid()
     {
         
@@ -101,26 +104,59 @@ public class Manager_Grid : MonoBehaviour
             int difference = 0;
             for (int j = Hight - 1; j >= 0; j--)
             {
+                Grid_Cell cell = grid[i, j].GetComponent<Grid_Cell>();
+                if (cell.Contained_Letter_Block != null && j != Hight - 1)
+                {
+                    for(int k = j+1; k < Hight; k++)
+                    {
+                        if(grid[i,k].GetComponent<Grid_Cell>().Contained_Letter_Block != null)
+                        {
+                            grid[i, k - 1].GetComponent<Grid_Cell>().SetLetterBlock(cell.Contained_Letter_Block);
+                            break;
+                            
+                        }
+                        else if(k == Hight - 1 && grid[i,k].GetComponent<Grid_Cell>().Contained_Letter_Block == null)
+                        {
+                            grid[i, k].GetComponent<Grid_Cell>().SetLetterBlock(cell.Contained_Letter_Block);
+                            break;
+                        }
+                    }
+                }
+                /*
                 if (lowestCell != null && grid[i, j].GetComponent<Grid_Cell>().Contained_Letter_Block != null)
                 {
-                    if(difference == 0)
+                    if (difference == 0)
                     {
                         difference = lowestCell.grid_Location.y - grid[i, j].GetComponent<Grid_Cell>().grid_Location.y;
                     }
-                    Debug.Log("i = " + i + ": j = " + j + "diff = " + difference);
+                    //Debug.Log("i = " + i + ": j = " + j + "diff = " + difference);
                     grid[i, j + difference].GetComponent<Grid_Cell>().SetLetterBlock(
                             grid[i, j].GetComponent<Grid_Cell>().Contained_Letter_Block);
-                    grid[i, j].GetComponent<Grid_Cell>().Contained_Letter_Block = null;
+                    grid[i, j].GetComponent<Grid_Cell>().SetLetterBlock(null);
+                    //new and broken.
+                    
                 }
                 else if(lowestCell == null && grid[i,j].GetComponent<Grid_Cell>().Contained_Letter_Block == null)
                 {
                     lowestCell = grid[i, j].GetComponent<Grid_Cell>();
-                    Debug.Log("Low Cell");
+                    //Debug.Log("Low Cell");
                     //break;
                 }
-                
+                */
             }
         }
         
+    }
+    public void ClearGrid()
+    {
+        foreach(GameObject cell in grid)
+        {
+            Letter_Block tmp = cell.GetComponent<Grid_Cell>().Contained_Letter_Block;
+            if(tmp != null)
+            {
+                Destroy(tmp.gameObject);
+                cell.GetComponent<Grid_Cell>().SetLetterBlock(null);
+            }
+        }
     }
 }

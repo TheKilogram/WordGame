@@ -13,7 +13,7 @@ public class Grid_Cell : MonoBehaviour
     private bool isHighlighted = false;
 
     public Vector2Int grid_Location { get => Grid_Location; set => Grid_Location = value; }
-    public Letter_Block Contained_Letter_Block { get => contained_Letter_Block; set => contained_Letter_Block = value; }
+    public Letter_Block Contained_Letter_Block { get => contained_Letter_Block; }// set => contained_Letter_Block = value; }
     public bool IsHighlighted { get => isHighlighted; }
 
     private void Awake()
@@ -22,8 +22,18 @@ public class Grid_Cell : MonoBehaviour
     }
     public void SetLetterBlock(Letter_Block lb)
     {
+        if(lb == null)
+        {
+            contained_Letter_Block = null;
+            return;
+        }
+        if(lb.parentCell != null)
+        {
+            lb.parentCell.SetLetterBlock(null);
+        }
         contained_Letter_Block = lb;
         contained_Letter_Block.GetComponent<Letter_Block>().SetDestination(this);
+        
         //contained_Letter_Block.transform.position = this.transform.position;
     }
 

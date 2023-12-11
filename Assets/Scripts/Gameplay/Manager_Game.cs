@@ -15,11 +15,15 @@ public class Manager_Game : MonoBehaviour
     [Tooltip("Toggles on and off the mechanice for deleting words as soon as they appear on the grid (true)" +
         " or having to click/press a button to delete the words on the grid (false).")]
     [SerializeField] private bool DeleteOnDrop = false; //Delete me and refactor code when you decide best mechanic
-    [Tooltip("The number of seconds until a row of letter blocks spawns on the bottom row. (repeats ever n seconds)")]
+    [Tooltip("The initial number of seconds until a row of letter blocks spawns on the bottom row. (repeats ever n seconds)")]
     [SerializeField] private int SecondsTillLettersSpawn = 60;
+    [Tooltip("Number of seconds that Seconds TillLettersSpawn gets reduced by")]
+    [SerializeField] private int SecondsTillLettersSpwanReducesBy = 1;
+    [Tooltip("Seconds until SecondsTillLettersSpawn gets reduced")]
+    [SerializeField] private int SecondsTillLettersSpawnReducesEvery = 30;
 
     [SerializeField] private GameObject LetterBlockPrefab;
-
+    [SerializeField] private GameObject GameOverScreenParent;
     [Tooltip("Prefab gameobject for the UFO art at the top of the screen that holds the letter blocks")]
     [SerializeField] private GameObject UFOArt;
     [Tooltip("Text mesh pro text object that lists all the previous desroyed words on the side of the screen.")]
@@ -31,7 +35,7 @@ public class Manager_Game : MonoBehaviour
 
     [Tooltip("Text file that contains all valid words.")]
     [SerializeField] private TextAsset WordListTextAsset;
-    
+
     private static HashSet<string> ValidWords;
 
     [Tooltip("Grid manager object")]
@@ -40,15 +44,19 @@ public class Manager_Game : MonoBehaviour
     //highlighted cells means the grid cells that are highlighed below the letter block about to get dropped.
     private List<Grid_Cell> highlightedCells = new List<Grid_Cell>();
     private List<Word> Words = new List<Word>();
-    
+
     private int currentPosition_Arr = 0;
     private int midPosition_Arr = 0;
     private int score = 0;
+    private float time = 0;
+
+    public static bool gameOver = false;
 
     //init events
     public static IntEvent MoveLetterEvent = new IntEvent();
     public static UnityEvent DropLetterEvent = new UnityEvent();
     public static UnityEvent DeleteAllWordsEvent = new UnityEvent();
+    public static UnityEvent RestartGameEvent = new UnityEvent();
     public static LetterEvent LetterClickedEvent = new LetterEvent();
     //private static Random _random = new Random();
 
@@ -60,21 +68,32 @@ public class Manager_Game : MonoBehaviour
         MoveLetterEvent.AddListener(MoveLetterBlock);
         DropLetterEvent.AddListener(DropLetterBlock);
         DeleteAllWordsEvent.AddListener(ClenseAllWords);
+        RestartGameEvent.AddListener(RestartGame);
         LetterClickedEvent.AddListener(LetterClicked);
         ValidWords = new HashSet<string>();
         StartGame();
-        StartCoroutine(AddRowEveryMinute());
+        StartCoroutine(ReduceTime());
     }
-    IEnumerator AddRowEveryMinute()
+    private void Update()
+    {
+
+        if (time + SecondsTillLettersSpawn <= Time.time && gameOver == false)
+        {
+            time = Time.time;
+            spawnBottomRow();
+        }
+
+    }
+    IEnumerator ReduceTime()
     {
         while (true)
         {
-            yield return new WaitForSeconds(SecondsTillLettersSpawn);
-            spawnBottomRow();
+            yield return new WaitForSeconds(SecondsTillLettersSpawnReducesEvery);
+            SecondsTillLettersSpawn = SecondsTillLettersSpawn - SecondsTillLettersSpwanReducesBy;
         }
     }
     //Start game logic, initializes game basicaly
-    void StartGame()
+    private void StartGame()
     {
         //loads the valid word list in from a text assest.
         LoadWordsFromTextAsset();
@@ -90,6 +109,7 @@ public class Manager_Game : MonoBehaviour
         //Init done so spawn first letter blocks (next and current)
         SpawnNewLetterBlock();
     }
+    
 
     private void LoadWordsFromTextAsset()
     {
@@ -216,9 +236,7 @@ public class Manager_Game : MonoBehaviour
         bool cellClensed = false;
         foreach (Word word in wordsToDelete)
         {
-            
-            cellClensed = ClenseWordFromClick(word);
-            
+            cellClensed = ClenseWordFromClick(word);   
         }
         if (cellClensed)
         {
@@ -228,12 +246,12 @@ public class Manager_Game : MonoBehaviour
             HightLight();
         }
     }
+    //clears all words on screen
     private void ClenseAllWords()
     {
         foreach(Word word in Words)
         {
             ClenseWordFromClick(word);
-
         }
         Words.Clear();
         manager_Grid.updateGrid();
@@ -262,13 +280,17 @@ public class Manager_Game : MonoBehaviour
         {
             currentLetterBlock.GetComponent<Letter_Block>().SetDestination(destination);
             //currentLetterBlock.transform.position = destination.gameObject.transform.position;
-            destination.Contained_Letter_Block = currentLetterBlock.GetComponent<Letter_Block>();
+            destination.SetLetterBlock(currentLetterBlock.GetComponent<Letter_Block>());
             currentLetterBlock = null;
             
             searchWholeGridForBiggestWords();
             
             SpawnNewLetterBlock();
 
+        }
+        else
+        {
+            //GameOver();
         }
 
     }
@@ -279,18 +301,21 @@ public class Manager_Game : MonoBehaviour
         {
             for (int j = 0; j < manager_Grid.grid.GetLength(0); j++)
             {
-                if(manager_Grid.grid[j,i].GetComponent<Grid_Cell>().Contained_Letter_Block != null)
+                Grid_Cell cur_cell = manager_Grid.grid[j, i].GetComponent<Grid_Cell>();
+                
+                if (cur_cell.Contained_Letter_Block != null)
                 {
                     if(i == 0)
                     {
                         //game over
                         Debug.Log("GAME OVER, i = 0 and letter go to high");
+                        GameOver();
                         return;
                     }
-                    manager_Grid.grid[j, i].GetComponent<Grid_Cell>().Contained_Letter_Block.SetDestination(
-                        manager_Grid.grid[j, i - 1].GetComponent<Grid_Cell>());
-                    manager_Grid.grid[j, i - 1].GetComponent<Grid_Cell>().Contained_Letter_Block =
-                        manager_Grid.grid[j, i].GetComponent<Grid_Cell>().Contained_Letter_Block;
+                    Grid_Cell above_cell = manager_Grid.grid[j, i - 1].GetComponent<Grid_Cell>();
+                    cur_cell.Contained_Letter_Block.SetDestination(above_cell);
+                    above_cell.SetLetterBlock(cur_cell.Contained_Letter_Block);
+                    cur_cell.SetLetterBlock(null);
                 }
             }
         }
@@ -303,6 +328,7 @@ public class Manager_Game : MonoBehaviour
             manager_Grid.grid[j, manager_Grid.grid.GetLength(1) - 1].GetComponent<Grid_Cell>().SetLetterBlock(LB.GetComponent<Letter_Block>());
             LB.transform.position = manager_Grid.grid[j, manager_Grid.grid.GetLength(1) - 1].transform.position;
         }
+        //manager_Grid.updateGrid();
         searchWholeGridForBiggestWords();
         HightLight();
     }
@@ -358,7 +384,7 @@ public class Manager_Game : MonoBehaviour
                     if (cell.Contained_Letter_Block != null)
                     {
                         Letter_Block tmp = cell.Contained_Letter_Block;
-                        cell.Contained_Letter_Block = null;
+                        cell.SetLetterBlock(null);
                         Destroy(tmp.gameObject);
                         cellClensed = true;
                     }
@@ -368,6 +394,7 @@ public class Manager_Game : MonoBehaviour
 
             if (cellClensed == true)
             {
+                
                 searchWholeGridForBiggestWords();
             }
         }
@@ -399,7 +426,7 @@ public class Manager_Game : MonoBehaviour
             {
                 continue;
             }
-            letter_Block.parentCell.Contained_Letter_Block = null;
+            letter_Block.parentCell.SetLetterBlock(null);
             deletes.Add(letter_Block);
         }
         foreach(Letter_Block block in deletes)
@@ -412,28 +439,7 @@ public class Manager_Game : MonoBehaviour
         return cellClensed;
         
     }
-    //if cell clensed then update grid and highlight new cells
-    private void ClenseCells(List<Grid_Cell> cells)
-    {
-        bool cellClensed = false;
-        foreach (Grid_Cell cell in cells)
-        {
-            if (cell.Contained_Letter_Block != null)
-            {
-                //debugStr = debugStr + cell.Contained_Letter_Block.Letter;
-                Letter_Block tmp = cell.Contained_Letter_Block;
-                cell.Contained_Letter_Block = null;
-                Destroy(tmp.gameObject);
-                cellClensed = true;
-            }
-        }
-        if(cellClensed == true)
-        {
-            manager_Grid.updateGrid();
-            searchWholeGridForBiggestWords();
-        }
-    }
-    //
+    
     private List<List<Grid_Cell>> AreCellsPartOfWord(Grid_Cell[] cells)
     {
         List<List<Grid_Cell>> potentialWords = new List<List<Grid_Cell>>();
@@ -507,7 +513,22 @@ public class Manager_Game : MonoBehaviour
 
         return returnCells;
     }
-   
+    private void GameOver()
+    {
+        GameOverScreenParent.SetActive(true);
+        gameOver = true;
+    }
+    public void RestartGame()
+    {
+        Words.Clear();
+        manager_Grid.ClearGrid();
+        GameOverScreenParent.SetActive(false);
+        gameOver = false;
+    }
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
     public char GetRandomLetterByFrequency()
     {
         System.Random _random = new System.Random();
